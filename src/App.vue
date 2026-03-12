@@ -4,13 +4,14 @@
       <!-- 游戏标题 -->
       <div class="header">
         <h1 class="game-title">宝宝玩数字</h1>
-        <div class="developer">开发商：宝宝巴士股份有限公司</div>
+        <div class="developer">开发商：言心股份有限公司</div>
       </div>
       
       <!-- 关卡信息 -->
       <div class="level-info">
         <span>场景: {{ currentSceneData.name }}</span>
-        <span>数字: {{ currentNumber }}</span>
+        <span v-if="currentTask && currentTask.type !== 'logicTask'">数字: {{ currentNumber }}</span>
+        <span v-else-if="currentTask && currentTask.type === 'logicTask'">挑战: 数一数</span>
       </div>
       
       <!-- 游戏区域 -->
@@ -54,7 +55,8 @@
                 <div class="step-icon">👁️</div>
                 <div class="step-content">
                   <h3>听一听</h3>
-                  <p>听数字儿歌，学习数字{{ currentNumber }}</p>
+                  <p v-if="currentTask.type !== 'logicTask'">听数字儿歌，学习数字{{ currentNumber }}</p>
+                  <p v-else>听数字儿歌，准备开始挑战</p>
                 </div>
               </div>
               <div class="guide-step">
@@ -68,7 +70,9 @@
                 <div class="step-icon">👆</div>
                 <div class="step-content">
                   <h3>点一点</h3>
-                  <p>{{ currentTask.description }}</p>
+                  <p v-if="currentTask && currentTask.type !== 'logicTask'">{{ currentTask.description }}</p>
+                  <p v-else-if="currentTask && currentTask.type === 'logicTask'">{{ currentTask.scenario }}</p>
+                  <p v-else>准备好开始游戏了吗？</p>
                 </div>
               </div>
             </div>
@@ -83,7 +87,7 @@
           <div class="scene-background" :class="currentScene">
             <!-- 任务提示 -->
             <div class="task-prompt">
-              <div class="task-description">{{ currentTask.description }}</div>
+              <div class="task-description">{{ currentTask ? (currentTask.type === 'logicTask' ? currentTask.scenario : currentTask.description) : '' }}</div>
               <div class="voice-button" @click="playTaskPrompt">
                 <span class="voice-icon">🔊</span>
               </div>
@@ -95,7 +99,7 @@
               <div v-if="currentTask.type === 'numberRecognition'" class="number-recognition">
                 <div class="number-display">
                   <span class="number-digit">{{ currentNumber }}</span>
-                  <div class="number-shape">{{ getNumberShape(currentNumber) }}</div>
+                  <div class="number-shape">数字{{ currentNumber }}像什么？</div>
                 </div>
                 <div class="shape-options">
                   <div 
@@ -259,12 +263,12 @@ const scenes = [
     icon: '🐄',
     numbers: [1, 2, 3, 4, 5],
     tasks: [
-      { type: 'quantityMatching', description: '给小鸡喂米，需要拿对应数量的米', targetItem: '米' },
+      { type: 'quantityMatching', description: '给小鸡喂米，需要拿对应数量的大米', targetItem: '大米' },
       { type: 'numberRecognition', description: '认识数字形状，选择正确的图形联想' },
       { type: 'logicTask', description: '帮农场主清点动物，选择正确的数量' }
     ],
     items: [
-      { icon: '🌾', name: '米' },
+      { icon: '🍚', name: '大米' },
       { icon: '🐔', name: '小鸡' },
       { icon: '🐄', name: '奶牛' },
       { icon: '🐑', name: '绵羊' }
@@ -374,6 +378,7 @@ const currentSceneData = computed(() => {
 });
 
 const canSubmit = computed(() => {
+  if (!currentTask.value) return false;
   if (currentTask.value.type === 'numberRecognition' || currentTask.value.type === 'logicTask') {
     return selectedItems.value.length === 1;
   } else if (currentTask.value.type === 'quantityMatching') {
@@ -383,6 +388,7 @@ const canSubmit = computed(() => {
 });
 
 const successMessage = computed(() => {
+  if (!currentTask.value) return '太棒了！你答对了！';
   if (currentTask.value.type === 'numberRecognition') {
     return `你认识数字${currentNumber.value}了！`;
   } else if (currentTask.value.type === 'quantityMatching') {
@@ -394,6 +400,7 @@ const successMessage = computed(() => {
 });
 
 const errorMessage = computed(() => {
+  if (!currentTask.value) return '再试一次吧！';
   if (currentTask.value.type === 'numberRecognition') {
     return '再看看数字的形状，试试吧！';
   } else if (currentTask.value.type === 'quantityMatching') {
@@ -444,10 +451,12 @@ const startGame = () => {
   generateTask();
 };
 
-// 生成任务
+// 生成任务（固定关卡和题目）
 const generateTask = () => {
   const tasks = currentSceneData.value.tasks;
-  currentTask.value = tasks[Math.floor(Math.random() * tasks.length)];
+  // 根据数字索引固定选择任务类型，确保每个数字对应固定的题目
+  const taskIndex = (currentNumber.value - 1) % tasks.length;
+  currentTask.value = tasks[taskIndex];
   
   if (currentTask.value.type === 'numberRecognition') {
     // 生成数字形状选项
@@ -461,59 +470,93 @@ const generateTask = () => {
   }
 };
 
-// 生成数字形状选项
+// 生成数字形状选项（固定选项）
 const generateShapeOptions = () => {
   const options = [numberShapes[currentNumber.value]];
-  // 添加其他形状作为干扰选项
+  // 添加其他形状作为干扰选项（固定顺序）
   const shapeKeys = Object.keys(numberShapes);
+  const currentIndex = shapeKeys.indexOf(currentNumber.value.toString());
+  
+  // 添加固定位置的干扰项
+  const distractIndices = [
+    (currentIndex + 1) % shapeKeys.length,
+    (currentIndex + 2) % shapeKeys.length,
+    (currentIndex + 3) % shapeKeys.length
+  ];
+  
+  distractIndices.forEach(index => {
+    const shape = numberShapes[shapeKeys[index]];
+    if (shape && !options.some(opt => opt.icon === shape.icon)) {
+      options.push(shape);
+    }
+  });
+  
+  // 确保有4个选项
   while (options.length < 4) {
-    const randomShape = numberShapes[shapeKeys[Math.floor(Math.random() * shapeKeys.length)]];
-    if (!options.some(opt => opt.icon === randomShape.icon)) {
-      options.push(randomShape);
+    const index = (currentIndex + options.length) % shapeKeys.length;
+    const shape = numberShapes[shapeKeys[index]];
+    if (shape && !options.some(opt => opt.icon === shape.icon)) {
+      options.push(shape);
     }
   }
-  // 打乱顺序
-  shapeOptions.value = options.sort(() => Math.random() - 0.5);
+  
+  // 固定顺序（不随机打乱）
+  shapeOptions.value = options;
 };
 
-// 生成任务物品
+// 生成任务物品（固定物品）
 const generateTaskItems = () => {
   const items = [];
   const sceneItems = currentSceneData.value.items;
   const targetItem = sceneItems.find(item => item.name === currentTask.value.targetItem) || sceneItems[0];
   
-  // 添加目标物品
-  for (let i = 0; i < currentNumber.value; i++) {
+  // 添加目标物品（固定数量，避免通过数量推断答案）
+  const targetCount = Math.min(currentNumber.value + 2, 6);
+  for (let i = 0; i < targetCount; i++) {
     items.push({ icon: targetItem.icon, isTarget: true });
   }
   
-  // 添加其他物品作为干扰
+  // 添加其他物品作为干扰（固定顺序）
   const otherItems = sceneItems.filter(item => item.icon !== targetItem.icon);
-  while (items.length < 6) {
-    const randomItem = otherItems[Math.floor(Math.random() * otherItems.length)];
-    items.push({ icon: randomItem.icon, isTarget: false });
+  const distractCount = 6 - targetCount;
+  for (let i = 0; i < distractCount; i++) {
+    const distractItem = otherItems[i % otherItems.length];
+    items.push({ icon: distractItem.icon, isTarget: false });
   }
   
-  // 打乱顺序
-  taskItems.value = items.sort(() => Math.random() - 0.5);
+  // 固定顺序（不随机打乱）
+  taskItems.value = items;
 };
 
-// 生成逻辑选项
+// 生成逻辑选项（固定选项）
 const generateLogicOptions = () => {
   const options = [];
   // 正确答案
   options.push({ content: currentNumber.value.toString(), isCorrect: true });
   
-  // 干扰选项
+  // 固定的干扰选项（根据当前数字生成固定的干扰项）
+  const wrongAnswers = [
+    (currentNumber.value % 10) + 1,
+    ((currentNumber.value + 2) % 10) + 1,
+    ((currentNumber.value + 4) % 10) + 1
+  ];
+  
+  wrongAnswers.forEach(num => {
+    if (!options.some(opt => opt.content === num.toString())) {
+      options.push({ content: num.toString(), isCorrect: false });
+    }
+  });
+  
+  // 确保有4个选项
   while (options.length < 4) {
-    const randomNumber = Math.floor(Math.random() * 10) + 1;
+    const randomNumber = ((currentNumber.value + options.length) % 10) + 1;
     if (!options.some(opt => opt.content === randomNumber.toString())) {
       options.push({ content: randomNumber.toString(), isCorrect: false });
     }
   }
   
-  // 打乱顺序
-  logicOptions.value = options.sort(() => Math.random() - 0.5);
+  // 固定顺序（不随机打乱）
+  logicOptions.value = options;
   
   // 设置任务场景描述
   if (currentScene.value === 'pond' && currentTask.value.description.includes('鱼篓')) {
