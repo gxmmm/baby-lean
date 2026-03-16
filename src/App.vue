@@ -107,7 +107,6 @@
                     :key="'shape-' + index"
                     :class="['shape-option', { 'selected': selectedItems.includes(index) }]"
                     @click="selectItem(index)"
-                    @touchstart="selectItem(index)"
                   >
                     <span class="shape-icon">{{ shape.icon }}</span>
                     <div class="shape-name">{{ shape.name }}</div>
@@ -126,7 +125,6 @@
                     :key="'item-' + index"
                     :class="['task-item', { 'selected': selectedItems.includes(index) }]"
                     @click="selectItem(index)"
-                    @touchstart="selectItem(index)"
                   >
                     <span class="item-icon">{{ item.icon }}</span>
                   </div>
@@ -191,7 +189,6 @@
                     :key="'logic-' + index"
                     :class="['logic-option', { 'selected': selectedItems.includes(index) }]"
                     @click="selectItem(index)"
-                    @touchstart="selectItem(index)"
                   >
                     <span class="option-content">{{ option.content }}</span>
                   </div>
@@ -727,7 +724,7 @@ onUnmounted(() => {
   width: 90%;
   max-width: 800px;
   height: 90%;
-  max-height: 600px;
+  max-height: 90vh; /* 使用视口高度的90%，确保在手机上也能显示完整 */
   background: #fff9e6;
   border-radius: 20px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
